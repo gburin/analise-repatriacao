@@ -1,0 +1,104 @@
+---
+title: "Analisando o Programa de Repatriação de Talentos - Conhecimento Brasil"
+author: "Gustavo Burin"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format: 
+  html:
+    code-fold: true
+    embed-resources: true
+    self-contained: true
+    theme:
+      light: spacelab
+      dark: superhero
+    fontsize: 1.2em
+    max-width: 1920px
+---
+
+```{r}
+#| echo: false
+#| label: setup
+#| warning: false
+#| message: false
+
+library("here")
+library("ggplot2")
+library("MetBrewer")
+library("patchwork")
+library("tidyverse")
+
+here::i_am("R/analise-repatriacao.qmd")
+
+```
+
+# Programa de Repatriação de Talentos - Conhecimento Brasil (PRT)
+
+O Programa de Repatriação de Talentos - Conhecimento Brasil (daqui para frente referido como PRT) é um programa do Ministério da Ciência, Tecnologia e Inovação (MCTI) do Governo Federal, que visa financiar a volta de pesquisadores brasileiros vinculados a instituições de ensino superior e pesquisa no exterior. O programa visa repatriar aproximadamente 800 doutores e 200 mestres, sendo essa última categoria "voltada a apoiar a execução de projetos em instituições de ensino superior públicas ou privadas, institutos de ciência e tecnologia e empresas que desenvolvam pesquisas, sempre localizados no Brasil, em cooperação com brasileiros atuando em congêneres estrangeiras". ([documento]("/docs/conhecimento_brasil_fndct_cnpq_finep-1.pdf"))
+
+Esse programa tem uma verba total estimada em R$1 bilhão com duração de 5 anos, proporcionalmente distribuída entre as duas categorias descritas acima (R$822,4 milhões para doutores - média de R$164,48 milhões por ano - e R$230 milhões para mestres - média de R$46 milhões por ano). Para fins de simplicidade, neste documento todos os cálculos serão feitos pensando na verba destinada a doutores, visto que o propósito da repatriação de mestres tem um viés mais "aplicado" e nosso foco aqui é nos impactos para a carreira acadêmica no Brasil.
+
+# Orçamento CNPq e CAPES
+
+Uma das críticas feitas ao PRT é de que essa verba deveria ser usada para financiar pesquisadores que já estão estabelecidos no país, dado que o país passou por uma seqüência de anos com cortes severos nas verbas disponíveis para Ciência e Tecnologia (C&T). Sendo assim, é importante então comparar a verba destinada ao PRT com os orçamentos das agências federais de financiamento à pesquisa, afim de entender qual seria o real impacto caso a verba do PRT fosse utilizada para financiar pesquisadores já vinculados a universidades e institutos de pesquisa no Brasil. 
+
+Para obter informações atualizadas sobre os orçamentos das duas agências federais de fomento, utilizamos o pacote `rvest` para extrair esses dados diretamente da página do [Portal da Transparência do Governo Federal](https://portaldatransparencia.gov.br/). Todos os dados são referentes ao ano de 2023 para nos atermos a orçamentos para anos já concluídos.
+
+```{r}
+#| echo: true
+#| label: obter-dados-transparencia
+#| warning: false
+#| message: false
+#| column: page
+#| fig.width: 10
+#| fig.height: 20
+#| fig-cap: "Phylogeny of Lecythidoideae displaying the distribution of trait states in the tips and speciation rates. The colors of the symbols at the tips describe the trait state, while both the icon size and the plot to the right show the distribution of speciation rates estimated using CLaDS."
+
+library("rvest")
+
+## Baixar as páginas completas
+
+pag.cnpq <- read_html("https://portaldatransparencia.gov.br/orgaos/20501?ano=2023")
+pag.capes <- read_html("https://portaldatransparencia.gov.br/orgaos/26291?ano=2023")
+
+## Identificar os boxes com os valores
+
+box.orc.cnpq <- html_elements(pag.cnpq, css = "td")
+box.orc.capes <- html_elements(pag.capes, css = "td")
+
+values.string.cnpq <- html_text2(box.orc.cnpq)
+values.string.capes <- html_text2(box.orc.capes)
+
+## Extraindo os valores de interesse
+
+orc.total.cnpq <- as.numeric(str_replace(str_replace_all(gsub("ORÇAMENTO ATUALIZADO ", "", values.string.cnpq[grep("ORÇAMENTO ATUALIZADO", values.string.cnpq)]), "\\.", ""), ",", "\\."))
+orc.total.capes <- as.numeric(str_replace(str_replace_all(gsub("ORÇAMENTO ATUALIZADO ", "", values.string.capes[grep("ORÇAMENTO ATUALIZADO", values.string.capes)]), "\\.", ""), ",", "\\."))
+
+```
+
+Em ambos os orçamentos, os valores de custeio direto de projetos e bolsas corresponde à maior fatia dos gastos (`{r} paste0(round((1586830649/orc.total.cnpq) * 100, 2), "%")` e `{r} paste0(round((4262440000/orc.total.capes) * 100, 2), "%")` para CNPq e CAPES, respectivamente).
+
+## Divisão do orçamento - CNPq
+
+```{=html}
+<iframe src="https://portaldatransparencia.gov.br/graficos/embed/orgaos/distribuicao-despesa-por-subfuncao/barras-horizontais?codigoOrgao=20501&isOrgaoMaximo=false&codigoFuncao=19&paleta=laranja&ano=2023&titulo=Distribui%C3%A7%C3%A3o%20das%20despesas%20nas%20subfun%C3%A7%C3%B5es%20da%20%C3%A1rea" width="100%" height="100%" frameborder="0" style="border:0" allowfullscreen></iframe>
+```
+
+## Divisão do orçamento - CAPES
+
+```{=html}
+<iframe src="https://portaldatransparencia.gov.br/graficos/embed/orgaos/distribuicao-despesa-por-subfuncao/barras-horizontais?idOrgao=47901737&codigoOrgao=26291&isOrgaoMaximo=false&skGrupoObjeto=3&descricaoGrupoObjeto=Bens%20Patrimoniais&tipoDespesa=Empenhos%20realizados&paleta=laranja&ano=2023&titulo=Distribui%C3%A7%C3%A3o%20das%20despesas%20nas%20subfun%C3%A7%C3%B5es%20da%20%C3%A1rea&categoria=1&codigoFuncao=12&tipoViagem=viagens-nacionais&tipoConvenente=8&descricaoTipoConvenente=Administra%C3%A7%C3%A3o%20P%C3%BAblica%20Estadual%20ou%20do%20Distrito%20Federal" width="100%" height="100%" frameborder="0" style="border:0" allowfullscreen></iframe>
+```
+
+<!-- @fig-trait-rate-phylo shows the phylogeny obtained from Vargas \& Dick (2020) including 110 species of Lecythidoideae, and includes both information of trait states and speciation rates. -->
+
+
+<!-- ```{r} -->
+<!-- #| echo: true -->
+<!-- #| label: fig-trait-rate-phylo -->
+<!-- #| warning: false -->
+<!-- #| message: false -->
+<!-- #| column: page -->
+<!-- #| fig.width: 10 -->
+<!-- #| fig.height: 20 -->
+<!-- #| fig-cap: "Phylogeny of Lecythidoideae displaying the distribution of trait states in the tips and speciation rates. The colors of the symbols at the tips describe the trait state, while both the icon size and the plot to the right show the distribution of speciation rates estimated using CLaDS." -->
+
+<!-- ``` -->
